@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUserGuardContext } from "@/app/UserGuardContext";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AddCameraForm } from "@/components/AddCameraForm";
 import { CameraCard } from "@/components/CameraCard";
 import { DetectionConfig } from "@/components/DetectionConfig";
@@ -21,18 +21,20 @@ export default function DashboardPage() {
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
   const [showEvents, setShowEvents] = useState(false);
   
-  const { cameras, loading, error, addCamera, toggleCamera, deleteCamera, subscribeToUserCameras } = useCameraStore();
+  const { cameras, loading, error, addCamera, updateCamera, deleteCamera, loadCameras } = useCameraStore();
   const { configuredCameras, configureDetection } = useDetectionStore();
 
   useEffect(() => {
-    const unsubscribe = subscribeToUserCameras(user.uid);
-    return () => unsubscribe();
-  }, [user.uid, subscribeToUserCameras]);
+    if (user) {
+      loadCameras(user.uid);
+    }
+  }, [user]);
 
   const handleAddCamera = async (data: any) => {
     try {
       await addCamera(data, user.uid);
       setShowAddCamera(false);
+      toast.success('Camera added successfully');
     } catch (error: any) {
       toast.error(error.message || "Failed to add camera");
     }
@@ -96,6 +98,7 @@ export default function DashboardPage() {
                 </Button>
               </DialogTrigger>
               <DialogContent>
+                <DialogTitle>Add New Camera</DialogTitle>
                 <AddCameraForm
                   onSubmit={handleAddCamera}
                   onCancel={() => setShowAddCamera(false)}
@@ -120,9 +123,19 @@ export default function DashboardPage() {
                 <div key={camera.id} className="relative group">
                   <CameraCard
                     camera={camera}
-                    onToggle={() => toggleCamera(camera.id)}
+                    onToggle={(enabled) => {
+                      updateCamera(camera.id, { enabled });
+                    }}
                     onDelete={() => handleDeleteCamera(camera.id)}
                     detectionZones={configuredCameras[camera.id]}
+                    onConfigureDetection={() => {
+                      setSelectedCamera(camera.id);
+                      setShowDetectionConfig(true);
+                    }}
+                    onViewEvents={() => {
+                      setSelectedCamera(camera.id);
+                      setShowEvents(true);
+                    }}
                   />
                   <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity space-x-2">
                     <Button
@@ -153,6 +166,7 @@ export default function DashboardPage() {
 
           <Dialog open={showDetectionConfig} onOpenChange={setShowDetectionConfig}>
             <DialogContent className="max-w-2xl">
+              <DialogTitle>Configure Detection Zones</DialogTitle>
               <DetectionConfig
                 zones={configuredCameras[selectedCamera || ""] || []}
                 onZonesChange={(zones) => {
@@ -170,6 +184,7 @@ export default function DashboardPage() {
 
           <Dialog open={showEvents} onOpenChange={setShowEvents}>
             <DialogContent className="max-w-4xl">
+              <DialogTitle>Detection Events</DialogTitle>
               {selectedCamera && <DetectionEvents cameraId={selectedCamera} />}
             </DialogContent>
           </Dialog>
